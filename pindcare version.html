@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Pind Care – Rural Telemedicine (Offline-first)</title>
+
+  <!-- Tailwind for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fallback minimal styles so it stays usable even if Tailwind can't load -->
+  <style>
+    :root {
+      --bg:#f7fafc; --text:#0f172a; --muted:#475569; --primary:#2563eb; --accent:#10b981; --ring:#e2e8f0;
+      --panel:#ffffff; --warn:#f59e0b; --danger:#ef4444; --ok:#16a34a;
+    }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica Neue,Arial;}
+    .container{max-width:1100px;margin:0 auto;padding:16px;}
+    .card{background:var(--panel);border:1px solid var(--ring);border-radius:16px;padding:16px;}
+    .panel{background:linear-gradient(180deg,#fff, #fff);border:1px solid var(--ring);border-radius:16px;padding:16px;}
+    .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ring);border-radius:999px;padding:8px 12px;color:var(--muted);background:#fff;}
+    .btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:10px 14px;background:linear-gradient(135deg,#60a5fa,#2563eb);color:#fff;
+      font-weight:700;border:none;cursor:pointer;}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .title{font-size:28px;margin:0;}
+    .subtitle{color:var(--muted);margin:6px 0 0}
+    .badge{display:inline-flex;gap:6px;align-items:center;border-radius:999px;padding:6px 10px;background:#eff6ff;color:#1d4ed8;border:1px solid #dbeafe}
+    .pill{display:inline-flex;gap:8px;align-items:center;border-radius:999px;padding:8px 12px;background:#ecfeff;border:1px solid #bae6fd;color:#0369a1}
+    .grid{display:grid;gap:16px}
+    @media(min-width:768px){.cols-2{grid-template-columns:1fr 1fr} .cols-3{grid-template-columns:repeat(3,1fr)}}
+    .hidden{display:none!important}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid var(--ring);background:#fff;color:var(--text)}
+    label{display:block;color:var(--muted);font-size:14px;margin-bottom:6px}
+    .divider{height:1px;background:var(--ring);margin:10px 0}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .danger{color:var(--danger)}
+    .footer{color:var(--muted);font-size:13px}
+    .soft{background:#f8fafc}
+  </style>
+
+  <style>
+    /* Small polish when Tailwind is available */
+    .glass { background:rgba(255,255,255,.9); backdrop-filter:blur(8px); border:1px solid #e2e8f0; }
+    .grad { background: linear-gradient(90deg,#22c55e,#3b82f6); -webkit-background-clip:text; background-clip:text; color:transparent;}
+    .soft-card { background:#ffffff; box-shadow:0 10px 25px rgba(2,6,23,0.05); border:1px solid #e5e7eb; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="container">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <h1 class="title flex items-center gap-3">
+          <span class="grad font-bold">Pind Care</span>
+          <span class="badge">Offline-first</span>
+        </h1>
+        <p id="subtitle" class="subtitle">
+          Multilingual telemedicine for video consultations and rural care. Works even without internet.
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="statusPill" class="pill">
+          <span id="statusDot" class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+          <span id="statusText">Online</span>
+        </div>
+        <select id="languageSelect" class="min-w-[180px]">
+          <option value="en">English</option>
+          <option value="hi">हिन्दी (Hindi)</option>
+          <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Online vs Offline hint -->
+    <div class="mt-2 text-slate-600 text-sm" id="viewHint">
+      Online-only features appear when connected; offline tools are always available.
+    </div>
+
+    <!-- Tabs (auto-switches based on real connection) -->
+    <div class="mt-4 flex items-center gap-2">
+      <button id="tabOnline" type="button" class="btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2 12a10 10 0 0120 0" stroke="#fff" stroke-width="1.5"/></svg>
+        <span id="tabOnlineLabel">Online</span>
+      </button>
+      <button id="tabOffline" type="button" class="chip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 12a6 6 0 0112 0" stroke="#64748b" stroke-width="1.5"/></svg>
+        <span id="tabOfflineLabel">Offline</span>
+      </button>
+      <span class="text-slate-500 text-sm" id="autoSwitchNote">Auto-switches with your connection.</span>
+    </div>
+
+    <!-- ONLINE SECTION -->
+    <section id="onlineSection" class="mt-5 grid cols-2">
+      <!-- Video Consultation (Sample UI with disclosure) -->
+      <div class="soft-card rounded-2xl p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold" id="videoTitle">Video Consultation</h2>
+            <p class="text-slate-600 mt-1" id="videoDesc">Connect with a doctor over secure video when online.</p>
+          </div>
+          <span class="chip">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+            <span id="onlineOnlyChip">Online only</span>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="flex items-center gap-3">
+          <button id="startCallBtn" class="btn" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a2 2 0 00-2-2H5C3.895 5 3 5.895 3 7v10c0 1.105.895 2 2 2h10a2 2 0 002-2v-3.5l4 4V6.5l-4 4z"/></svg>
+            <span id="startCallLabel">Start Video Call</span>
+          </button>
+          <button id="scheduleBtn" class="chip" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" rx="2" width="18" height="16" stroke="#94a3b8" stroke-width="1.5"/><path d="M8 3v4M16 3v4M3 10h18" stroke="#94a3b8" stroke-width="1.5"/></svg>
+            <span id="scheduleLabel">Schedule</span>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mt-3" id="videoNote">
+          Sample interface only. Real calls require internet and an approved calling service.
+        </p>
+      </div>
+
+      <!-- Doctor Availability (updates live while online) -->
+      <div class="soft-card rounded-2xl p-4">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold" id="docAvailTitle">Doctors & Availability</h2>
+            <p class="text-slate-600 mt-1" id="docAvailDesc">See who’s available now. Updates while online, caches offline.</p>
+          </div>
+          <span class="chip">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+            <span id="onlineOnlyChip3">Online only</span>
+          </span>
+        </div>
+        <div class="mt-3 flex items-center gap-2">
+          <input id="docSearch" type="text" placeholder="Search by name or specialty"/>
+          <button id="docRefresh" class="chip" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4v6h6M20 20v-6h-6" stroke="#94a3b8" stroke-width="1.5"/><path d="M20 8a8 8 0 10-1.58 9.58" stroke="#94a3b8" stroke-width="1.5"/></svg>
+            <span id="refreshLabel2">Refresh</span>
+          </button>
+        </div>
+        <ul id="doctorList" class="mt-3 space-y-3"></ul>
+      </div>
+
+      <!-- Local Pharmacy Availability (simulated online, cached offline) -->
+      <div class="soft-card rounded-2xl p-4 md:col-span-2">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold" id="pharmTitle">Local Pharmacy Availability</h2>
+            <p class="text-slate-600 mt-1" id="pharmDesc">Live stock near you when online; shows last saved snapshot offline.</p>
+          </div>
+          <span class="chip">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+            <span id="onlineOnlyChip2">Online only</span>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="flex items-center gap-2 text-sm text-slate-600">
+          <span id="lastSyncedLabel">Last synced:</span>
+          <span id="lastSyncedValue" class="text-slate-800">–</span>
+          <input id="pharmSearch" type="text" placeholder="Search pharmacies or medicines" class="ml-2 flex-1 border rounded-lg px-3 py-2" />
+          <button id="manualSyncBtn" class="chip ml-auto" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4v6h6M20 20v-6h-6" stroke="#94a3b8" stroke-width="1.5"/><path d="M20 8a8 8 0 10-1.58 9.58" stroke="#94a3b8" stroke-width="1.5"/></svg>
+            <span id="refreshLabel">Refresh</span>
+          </button>
+        </div>
+        <ul id="pharmacyList" class="mt-3 space-y-3"></ul>
+      </div>
+    </section>
+
+    <!-- OFFLINE SECTION -->
+    <section id="offlineSection" class="mt-5 grid cols-2">
+      <!-- Patient Profile (offline) -->
+      <div class="card">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold" id="patientTitle">Patient Profile</h2>
+            <p class="text-slate-600 mt-1" id="patientDesc">Save basic details to use offline.</p>
+          </div>
+          <span class="chip">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+            <span id="offlineReadyChip0">Offline ready</span>
+          </span>
+        </div>
+        <form id="patientForm" class="mt-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <label for="pName" id="pNameLabel">Full name</label>
+            <input id="pName" type="text" placeholder="e.g., Rani Kaur" required/>
+          </div>
+          <div>
+            <label for="pAge" id="pAgeLabel">Age</label>
+            <input id="pAge" type="number" min="0" max="120" placeholder="e.g., 34"/>
+          </div>
+          <div>
+            <label for="pGender" id="pGenderLabel">Gender</label>
+            <select id="pGender">
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="pConditions" id="pCondLabel">Existing conditions</label>
+            <input id="pConditions" type="text" placeholder="e.g., diabetes, asthma"/>
+          </div>
+          <div class="md:col-span-2">
+            <label for="pNotes" id="pNotesLabel">Notes</label>
+            <textarea id="pNotes" rows="3" placeholder="Any extra info…"></textarea>
+          </div>
+          <div class="md:col-span-2 flex items-center gap-3">
+            <button class="btn" type="submit" id="saveProfileBtn">Save profile</button>
+            <button class="chip" type="button" id="clearProfileBtn">Clear</button>
+          </div>
+        </form>
+        <div id="patientView" class="mt-3 soft rounded-xl p-3 hidden"></div>
+      </div>
+
+      <!-- Digital Health Records (offline) -->
+      <div class="card">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold" id="recordsTitle">Digital Health Records</h2>
+            <p class="text-slate-600 mt-1" id="recordsDesc">Create and access records completely offline.</p>
+          </div>
+          <span class="chip">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+            <span id="offlineReadyChip">Offline ready</span>
+          </span>
+        </div>
+        <form id="recordForm" class="mt-3 space-y-3">
+          <div>
+            <label for="visitDate" id="visitDateLabel">Visit date</label>
+            <input id="visitDate" type="date" required/>
+          </div>
+          <div>
+            <label for="complaint" id="complaintLabel">Chief complaint</label>
+            <input id="complaint" type="text" placeholder="e.g., Fever, cough" required/>
+          </div>
+          <div>
+            <label for="notes" id="notesLabel">Notes</label>
+            <textarea id="notes" rows="3" placeholder="Add details…"></textarea>
+          </div>
+          <div class="flex items-center gap-3">
+            <button class="btn" type="submit" id="saveRecordBtn">Save record</button>
+            <button class="chip" type="button" id="clearAllBtn">Clear all</button>
+          </div>
+        </form>
+        <div class="divider"></div>
+        <ul id="recordList" class="space-y-3"></ul>
+      </div>
+
+      <!-- AI Symptom Checker (upgraded) -->
+      <div class="card md:col-span-2">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold" id="sympTitle">Symptom Checker (Upgraded)</h2>
+            <p class="text-slate-600 mt-1" id="sympDesc">Enter symptoms to get likely categories, suggested over‑the‑counter options, and tips. Works offline.</p>
+          </div>
+          <span class="chip">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+            <span id="offlineReadyChip2">Offline ready</span>
+          </span>
+        </div>
+        <form id="symptomForm" class="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
+          <div>
+            <label for="symptomsInput" id="sympInputLabel">Enter symptoms (comma separated)</label>
+            <input id="symptomsInput" type="text" placeholder="e.g., fever, cough, headache"/>
+          </div>
+          <div class="flex items-end">
+            <button class="btn" type="submit" id="checkBtn">Check</button>
+          </div>
+        </form>
+        <div class="mt-2">
+          <label id="quickPickLabel" class="text-slate-600 text-sm">Quick picks</label>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button class="chip" data-pick="fever" type="button">fever</button>
+            <button class="chip" data-pick="cough" type="button">cough</button>
+            <button class="chip" data-pick="sore throat" type="button">sore throat</button>
+            <button class="chip" data-pick="diarrhea" type="button">diarrhea</button>
+            <button class="chip" data-pick="vomiting" type="button">vomiting</button>
+            <button class="chip" data-pick="headache" type="button">headache</button>
+            <button class="chip" data-pick="runny nose" type="button">runny nose</button>
+            <button class="chip" data-pick="body ache" type="button">body ache</button>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <button class="chip" type="button" id="clearSympBtn">Clear</button>
+        </div>
+        <div id="symptomResults" class="mt-4 space-y-3"></div>
+        <p class="text-xs text-slate-500 mt-2" id="sympDisclaimer">
+          This is general guidance, not a diagnosis. Always follow local medical advice. For emergencies, use the numbers below.
+        </p>
+      </div>
+
+      <!-- Do's and Don'ts -->
+      <div class="card">
+        <h2 class="text-xl font-semibold" id="dosTitle">Do’s and Don’ts</h2>
+        <div class="grid md:grid-cols-2 gap-3 mt-3">
+          <div class="soft rounded-xl p-3">
+            <div class="font-semibold">Do’s</div>
+            <ul class="list-disc ml-5 mt-2 text-slate-700 space-y-1" id="dosList">
+              <li>Wash hands regularly and drink clean water.</li>
+              <li>Keep ORS packets at home for dehydration.</li>
+              <li>Complete prescribed antibiotic courses fully.</li>
+              <li>Rest, hydrate, and monitor temperature.</li>
+              <li>Use masks in case of cough/fever.</li>
+            </ul>
+          </div>
+          <div class="soft rounded-xl p-3">
+            <div class="font-semibold">Don’ts</div>
+            <ul class="list-disc ml-5 mt-2 text-slate-700 space-y-1" id="dontsList">
+              <li>Don’t self‑medicate strong antibiotics without a doctor.</li>
+              <li>Don’t ignore high fever beyond 3 days.</li>
+              <li>Don’t mix medicines without checking interactions.</li>
+              <li>Don’t delay seeking help if breathing is difficult.</li>
+              <li>Don’t rely on home remedies alone for severe symptoms.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Home Remedies (supportive care) -->
+      <div class="card">
+        <h2 class="text-xl font-semibold" id="homeTitle">Home Remedies (Supportive)</h2>
+        <div class="space-y-3 mt-3 text-slate-700" id="homeRemedies">
+          <div class="soft rounded-xl p-3">
+            <div class="font-semibold">Fever and body ache</div>
+            <div>Rest, light meals, plenty of water, sponge bath with lukewarm water.</div>
+          </div>
+          <div class="soft rounded-xl p-3">
+            <div class="font-semibold">Cough and sore throat</div>
+            <div>Warm water, ginger-tulsi tea, honey with warm water (avoid honey for children under 1 year).</div>
+          </div>
+          <div class="soft rounded-xl p-3">
+            <div class="font-semibold">Diarrhea</div>
+            <div>Use ORS as per packet; banana, rice, curd (BRAT-like), avoid oily/spicy food. Watch for dehydration.</div>
+          </div>
+          <div class="soft rounded-xl p-3">
+            <div class="font-semibold">Cold/runny nose</div>
+            <div>Steam inhalation, saline nasal drops, rest, fluids.</div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-2" id="homeNote">These are supportive only; seek medical care if symptoms worsen.</p>
+      </div>
+    </section>
+
+    <!-- Doctors Directory (profiles) -->
+    <section class="mt-6 card">
+      <div class="flex items-start justify-between">
+        <div>
+          <h2 class="text-xl font-semibold" id="docDirTitle">Doctors Directory</h2>
+          <p class="text-slate-600 mt-1" id="docDirDesc">Browse profiles and request an appointment (saved offline).</p>
+        </div>
+        <span class="chip">
+          <span class="inline-block h-2.5 w-2.5 rounded-full bg-sky-500"></span>
+          <span id="offlineReadyChip3">Offline ready</span>
+        </span>
+      </div>
+      <ul id="docDirectory" class="mt-3 grid md:grid-cols-3 gap-3"></ul>
+    </section>
+
+    <!-- EMERGENCY NUMBERS (Always visible) -->
+    <section class="mt-6 panel">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <h2 class="text-lg font-semibold grad" id="emTitle">Emergency Numbers (India)</h2>
+        <span class="chip">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.08 4.18 2 2 0 014.06 2h3a2 2 0 012 1.72c.12.9.3 1.78.54 2.63a2 2 0 01-.45 2.11L8 9a16 16 0 006 6l.54-1.15a2 2 0 012.11-.45c.85.24 1.73.42 2.63.54A2 2 0 0122 16.92z" stroke="#64748b" stroke-width="1.5"/></svg>
+          <span id="emSub">Tap to call or copy</span>
+        </span>
+      </div>
+      <div class="grid cols-3 mt-4">
+        <!-- Core -->
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">All-in-one</div><div class="text-xl font-bold">112</div></div><div class="flex gap-2"><a class="btn" href="tel:112" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="112" type="button">Copy</button></div></div></div>
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Ambulance</div><div class="text-xl font-bold">102</div></div><div class="flex gap-2"><a class="btn" href="tel:102" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="102" type="button">Copy</button></div></div></div>
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Emergency Mgmt</div><div class="text-xl font-bold">108</div></div><div class="flex gap-2"><a class="btn" href="tel:108" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="108" type="button">Copy</button></div></div></div>
+        <!-- Safety -->
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Police</div><div class="text-xl font-bold">100</div></div><div class="flex gap-2"><a class="btn" href="tel:100" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="100" type="button">Copy</button></div></div></div>
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Fire</div><div class="text-xl font-bold">101</div></div><div class="flex gap-2"><a class="btn" href="tel:101" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="101" type="button">Copy</button></div></div></div>
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Women</div><div class="text-xl font-bold">181 / 1091</div></div><div class="flex gap-2"><a class="btn" href="tel:181" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="181" type="button">Copy</button></div></div></div>
+        <!-- Health helplines -->
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Child helpline</div><div class="text-xl font-bold">1098</div></div><div class="flex gap-2"><a class="btn" href="tel:1098" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="1098" type="button">Copy</button></div></div></div>
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">Health advice</div><div class="text-xl font-bold">104</div></div><div class="flex gap-2"><a class="btn" href="tel:104" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="104" type="button">Copy</button></div></div></div>
+        <div class="card"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500">National helpline</div><div class="text-xl font-bold">1075</div></div><div class="flex gap-2"><a class="btn" href="tel:1075" target="_blank" rel="noopener noreferrer">Call</a><button class="chip copy-btn" data-num="1075" type="button">Copy</button></div></div></div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="mt-8 footer">
+      Online-only features hide when you’re offline. Calls and live data require internet and approved services. All saved data stays on your device.
+    </footer>
+  </div>
+
+  <!-- Video Modal (Sample UI) -->
+  <div id="callModal" class="fixed inset-0 hidden items-center justify-center p-4 z-50">
+    <div class="absolute inset-0 bg-black/50"></div>
+    <div class="relative w-full max-w-3xl glass rounded-2xl p-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold" id="callModalTitle">Video Call</h3>
+        <button id="closeModalBtn" class="chip" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 18L18 6M6 6l12 12" stroke="#64748b" stroke-width="1.5"/></svg>
+          <span id="closeLabel">Close</span>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3 mt-3">
+        <div class="panel h-56 flex items-center justify-center rounded-xl">
+          <div class="text-center">
+            <div class="text-slate-500 text-sm" id="youLabel">You</div>
+            <div class="mt-2 text-slate-800">Camera preview (sample)</div>
+          </div>
+        </div>
+        <div class="panel h-56 flex items-center justify-center rounded-xl">
+          <div class="text-center">
+            <div class="text-slate-500 text-sm" id="doctorLabel">Doctor</div>
+            <div class="mt-2 text-slate-800">Connecting…</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 mt-4">
+        <button class="chip" type="button" id="muteBtn">Mute</button>
+        <button class="chip" type="button" id="cameraBtn">Camera</button>
+        <button class="chip danger text-white bg-red-500" type="button" id="endBtn">End</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-3" id="callLegal">
+        Sample UI only. No audio/video is captured or transmitted here.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Translations (English, Hindi, Punjabi)
+    const t = {
+      en: {
+        subtitle: "Multilingual telemedicine for video consultations and rural care. Works even without internet.",
+        status_online: "Online", status_offline: "Offline",
+        viewHint: "Online-only features appear when connected; offline tools are always available.",
+        tabOnline: "Online", tabOffline: "Offline", autoSwitch: "Auto-switches with your connection.",
+        videoTitle: "Video Consultation", videoDesc: "Connect with a doctor over secure video when online.",
+        startCall: "Start Video Call", schedule: "Schedule", onlineOnly: "Online only",
+        docAvailTitle: "Doctors & Availability", docAvailDesc: "See who’s available now. Updates while online, caches offline.",
+        refresh: "Refresh",
+        pharmTitle: "Local Pharmacy Availability", pharmDesc: "Live stock near you when online; shows last saved snapshot offline.",
+        lastSynced: "Last synced:", recordsTitle: "Digital Health Records", recordsDesc: "Create and access records completely offline.",
+        visitDate: "Visit date", complaint: "Chief complaint", notes: "Notes", saveRecord: "Save record", clearAll: "Clear all",
+        sympTitle: "Symptom Checker (Upgraded)", sympDesc: "Enter symptoms to get likely categories, suggested over‑the‑counter options, and tips. Works offline.",
+        sympInput: "Enter symptoms (comma separated)", quickPicks: "Quick picks", check: "Check", clear: "Clear",
+        patientTitle: "Patient Profile", patientDesc: "Save basic details to use offline.", saveProfile: "Save profile", clear: "Clear",
+        pName: "Full name", pAge: "Age", pGender: "Gender", pCond: "Existing conditions", pNotes: "Notes",
+        dosTitle: "Do’s and Don’ts", homeTitle: "Home Remedies (Supportive)", homeNote: "These are supportive only; seek medical care if symptoms worsen.",
+        docDirTitle: "Doctors Directory", docDirDesc: "Browse profiles and request an appointment (saved offline).",
+        emTitle: "Emergency Numbers (India)", emSub: "Tap to call or copy",
+        callModalTitle: "Video Call", close: "Close", you: "You", doctor: "Doctor", callLegal: "Sample UI only. No audio/video is captured or transmitted here."
+      },
+      hi: {
+        subtitle: "ग्रामीण स्वास्थ्य के लिए बहुभाषी टेलीमेडिसिन। इंटरनेट न होने पर भी काम करता है।",
+        status_online: "ऑनलाइन", status_offline: "ऑफ़लाइन",
+        viewHint: "कनेक्ट होने पर ऑनलाइन विकल्प दिखेंगे; ऑफ़लाइन उपकरण हमेशा उपलब्ध हैं।",
+        tabOnline: "ऑनलाइन", tabOffline: "ऑफ़लाइन", autoSwitch: "आपके कनेक्शन के साथ स्वतः बदलता है।",
+        videoTitle: "वीडियो परामर्श", videoDesc: "ऑनलाइन होने पर सुरक्षित वीडियो से डॉक्टर से जुड़ें।",
+        startCall: "वीडियो कॉल शुरू करें", schedule: "समय तय करें", onlineOnly: "केवल ऑनलाइन",
+        docAvailTitle: "डॉक्टर और उपलब्धता", docAvailDesc: "कौन उपलब्ध है देखें। ऑनलाइन रहते अपडेट, ऑफ़लाइन में सेव रहता है।",
+        refresh: "रिफ्रेश",
+        pharmTitle: "स्थानीय फ़ार्मेसी उपलब्धता", pharmDesc: "ऑनलाइन रहते लाइव स्टॉक; ऑफ़लाइन में अंतिम सहेजा डेटा दिखता है।",
+        lastSynced: "आख़िरी समन्वय:", recordsTitle: "डिजिटल स्वास्थ्य रिकॉर्ड", recordsDesc: "पूरी तरह ऑफ़लाइन रिकॉर्ड बनाएँ और देखें।",
+        visitDate: "भेंट की तारीख", complaint: "मुख्य शिकायत", notes: "टिप्पणियाँ", saveRecord: "रिकॉर्ड सहेजें", clearAll: "सब साफ़ करें",
+        sympTitle: "लक्षण चेकर (अपग्रेडेड)", sympDesc: "लक्षण दर्ज करें और संभावित श्रेणियाँ, दवाओं के सुझाव और टिप्स पाएँ। ऑफ़लाइन काम करता है।",
+        sympInput: "लक्षण लिखें (अल्पविराम से अलग)", quickPicks: "त्वरित विकल्प", check: "जाँचें", clear: "साफ़ करें",
+        patientTitle: "रोगी प्रोफ़ाइल", patientDesc: "ऑफ़लाइन उपयोग के लिए मूल विवरण सहेजें।", saveProfile: "प्रोफ़ाइल सहेजें",
+        pName: "पूरा नाम", pAge: "आयु", pGender: "लिंग", pCond: "पूर्व स्थितियाँ", pNotes: "टिप्पणियाँ",
+        dosTitle: "क्या करें और क्या न करें", homeTitle: "घरेलू उपाय (सहायक)", homeNote: "ये केवल सहायक हैं; बिगड़ने पर चिकित्सा लें।",
+        docDirTitle: "डॉक्टर निर्देशिका", docDirDesc: "प्रोफ़ाइल देखें और अपॉइंटमेंट अनुरोध करें (ऑफ़लाइन सेव)।",
+        emTitle: "आपातकालीन नंबर (भारत)", emSub: "कॉल करें या कॉपी करें",
+        callModalTitle: "वीडियो कॉल", close: "बंद करें", you: "आप", doctor: "डॉक्टर", callLegal: "केवल नमूना UI। कोई ऑडियो/वीडियो नहीं भेजा जाता।"
+      },
+      pa: {
+        subtitle: "ਪਿੰਡਾਂ ਲਈ ਬਹੁਭਾਸ਼ੀ ਟੈਲੀਮੇਡਿਸਨ। ਇੰਟਰਨੈਟ ਬਿਨ੍ਹਾਂ ਵੀ ਚੱਲਦਾ ਹੈ।",
+        status_online: "ਆਨਲਾਈਨ", status_offline: "ਆਫਲਾਈਨ",
+        viewHint: "ਕਨੈਕਸ਼ਨ ਹੋਣ ’ਤੇ ਆਨਲਾਈਨ ਵਿਕਲਪ ਦਿਖਣਗੇ; ਆਫਲਾਈਨ ਟੂਲ ਹਮੇਸ਼ਾ ਉਪਲਬਧ ਹਨ।",
+        tabOnline: "ਆਨਲਾਈਨ", tabOffline: "ਆਫਲਾਈਨ", autoSwitch: "ਤੁਹਾਡੇ ਕਨੈਕਸ਼ਨ ਨਾਲ ਆਪਣੇ ਆਪ ਬਦਲਦਾ ਹੈ।",
+        videoTitle: "ਵੀਡੀਓ ਸਲਾਹ", videoDesc: "ਆਨਲਾਈਨ ਹੋਣ ’ਤੇ ਸੁਰੱਖਿਅਤ ਵੀਡੀਓ ਰਾਹੀਂ ਡਾਕਟਰ ਨਾਲ ਜੁੜੋ।",
+        startCall: "ਵੀਡੀਓ ਕਾਲ ਸ਼ੁਰੂ ਕਰੋ", schedule: "ਸਮਾਂ ਬੁੱਕ ਕਰੋ", onlineOnly: "ਕੇਵਲ ਆਨਲਾਈਨ",
+        docAvailTitle: "ਡਾਕਟਰ ਅਤੇ ਉਪਲਬਧਤਾ", docAvailDesc: "ਕੌਣ ਹੁਣ ਉਪਲਬਧ ਹੈ ਵੇਖੋ। ਆਨਲਾਈਨ ਅਪਡੇਟ, ਆਫਲਾਈਨ ਸੇਵ।",
+        refresh: "ਰਿਫਰੈਸ਼",
+        pharmTitle: "ਸਥਾਨਕ ਫਾਰਮੇਸੀ ਉਪਲਬਧਤਾ", pharmDesc: "ਆਨਲਾਈਨ ਹੋਣ ’ਤੇ ਲਾਈਵ ਸਟਾਕ; ਆਫਲਾਈਨ ਆਖਰੀ ਸੇਵਿਆ ਡਾਟਾ।",
+        lastSynced: "ਆਖਰੀ ਸਿੰਕ:", recordsTitle: "ਡਿਜਿਟਲ ਹੈਲਥ ਰਿਕਾਰਡ", recordsDesc: "ਪੂਰੀ ਤਰ੍ਹਾਂ ਆਫਲਾਈਨ ਰਿਕਾਰਡ ਬਣਾਓ ਤੇ ਵੇਖੋ।",
+        visitDate: "ਮੁਲਾਕਾਤ ਮਿਤੀ", complaint: "ਮੁੱਖ ਸ਼ਿਕਾਇਤ", notes: "ਨੋਟਸ", saveRecord: "ਰਿਕਾਰਡ ਸੇਵ ਕਰੋ", clearAll: "ਸਭ ਮਿਟਾਓ",
+        sympTitle: "ਲੱਛਣ ਚੈੱਕਰ (ਅਪਗ੍ਰੇਡ)", sympDesc: "ਲੱਛਣ ਦਰਜ ਕਰੋ ਅਤੇ ਸੰਭਾਵੀ ਸ਼੍ਰੇਣੀਆਂ, ਦਵਾਈਆਂ ਦੇ ਸੁਝਾਵ ਅਤੇ ਟਿੱਪਾਂ ਪ੍ਰਾਪਤ ਕਰੋ। ਆਫਲਾਈਨ ਕੰਮ ਕਰਦਾ ਹੈ।",
+        sympInput: "ਲੱਛਣ ਲਿਖੋ (ਕੌਮਾ ਨਾਲ ਵੱਖਰੇ)", quickPicks: "ਤੁਰੰਤ ਚੋਣਾਂ", check: "ਚੈੱਕ", clear: "ਸਾਫ਼ ਕਰੋ",
+        patientTitle: "ਮਰੀਜ਼ ਪ੍ਰੋਫ਼ਾਈਲ", patientDesc: "ਆਫਲਾਈਨ ਵਰਤੋਂ ਲਈ ਬੁਨਿਆਦੀ ਵੇਰਵੇ ਸੇਵ ਕਰੋ।", saveProfile: "ਪ੍ਰੋਫ਼ਾਈਲ ਸੇਵ ਕਰੋ",
+        pName: "ਪੂਰਾ ਨਾਮ", pAge: "ਉਮਰ", pGender: "ਲਿੰਗ", pCond: "ਪਹਿਲਾਂ ਤੋਂ ਬੀਮਾਰੀ", pNotes: "ਨੋਟਸ",
+        dosTitle: "ਕੀ ਕਰੋ ਅਤੇ ਕੀ ਨਾ ਕਰੋ", homeTitle: "ਘਰੇਲੂ ਉਪਾਅ (ਸਹਾਇਕ)", homeNote: "ਇਹ ਸਿਰਫ਼ ਸਹਾਇਕ ਹਨ; ਹਾਲਤ ਵਿਗੜੇ ਤਾਂ ਡਾਕਟਰੀ ਸਲਾਹ ਲਓ।",
+        docDirTitle: "ਡਾਕਟਰ ਡਾਇਰੈਕਟਰੀ", docDirDesc: "ਪ੍ਰੋਫ਼ਾਈਲ ਵੇਖੋ ਅਤੇ ਮੁਲਾਕਾਤ ਬੇਨਤੀ ਕਰੋ (ਆਫਲਾਈਨ ਸੇਵ)।",
+        emTitle: "ਐਮਰਜੈਂਸੀ ਨੰਬਰ (ਭਾਰਤ)", emSub: "ਕਾਲ ਕਰੋ ਜਾਂ ਕਾਪੀ ਕਰੋ",
+        callModalTitle: "ਵੀਡੀਓ ਕਾਲ", close: "ਬੰਦ ਕਰੋ", you: "ਤੁਸੀਂ", doctor: "ਡਾਕਟਰ", callLegal: "ਸਿਰਫ਼ ਨਮੂਨਾ UI। ਇੱਥੇ ਕੋਈ ਆਡੀਓ/ਵੀਡੀਓ ਨਹੀਂ ਭੇਜੀ ਜਾਂਦੀ।"
+      }
+    };
+
+    // Elements
+    const els = {
+      // Header
+      subtitle: document.getElementById('subtitle'),
+      statusPill: document.getElementById('statusPill'),
+      statusDot: document.getElementById('statusDot'),
+      statusText: document.getElementById('statusText'),
+      languageSelect: document.getElementById('languageSelect'),
+      viewHint: document.getElementById('viewHint'),
+      tabOnline: document.getElementById('tabOnline'),
+      tabOffline: document.getElementById('tabOffline'),
+      tabOnlineLabel: document.getElementById('tabOnlineLabel'),
+      tabOfflineLabel: document.getElementById('tabOfflineLabel'),
+      autoSwitchNote: document.getElementById('autoSwitchNote'),
+
+      // Sections
+      onlineSection: document.getElementById('onlineSection'),
+      offlineSection: document.getElementById('offlineSection'),
+
+      // Video
+      videoTitle: document.getElementById('videoTitle'),
+      videoDesc: document.getElementById('videoDesc'),
+      startCallBtn: document.getElementById('startCallBtn'),
+      startCallLabel: document.getElementById('startCallLabel'),
+      scheduleBtn: document.getElementById('scheduleBtn'),
+      scheduleLabel: document.getElementById('scheduleLabel'),
+      onlineOnlyChip: document.getElementById('onlineOnlyChip'),
+      onlineOnlyChip2: document.getElementById('onlineOnlyChip2'),
+      onlineOnlyChip3: document.getElementById('onlineOnlyChip3'),
+      videoNote: document.getElementById('videoNote'),
+
+      // Modal
+      callModal: document.getElementById('callModal'),
+      closeModalBtn: document.getElementById('closeModalBtn'),
+      callModalTitle: document.getElementById('callModalTitle'),
+      closeLabel: document.getElementById('closeLabel'),
+      callLegal: document.getElementById('callLegal'),
+      youLabel: document.getElementById('youLabel'),
+      doctorLabel: document.getElementById('doctorLabel'),
+      endBtn: document.getElementById('endBtn'),
+
+      // Pharmacy
+      pharmTitle: document.getElementById('pharmTitle'),
+      pharmDesc: document.getElementById('pharmDesc'),
+      lastSyncedLabel: document.getElementById('lastSyncedLabel'),
+      lastSyncedValue: document.getElementById('lastSyncedValue'),
+      manualSyncBtn: document.getElementById('manualSyncBtn'),
+      refreshLabel: document.getElementById('refreshLabel'),
+      pharmacyList: document.getElementById('pharmacyList'),
+
+      // Doctor availability (online)
+      docAvailTitle: document.getElementById('docAvailTitle'),
+      docAvailDesc: document.getElementById('docAvailDesc'),
+      docSearch: document.getElementById('docSearch'),
+      doctorList: document.getElementById('doctorList'),
+      docRefresh: document.getElementById('docRefresh'),
+
+      // Records
+      recordsTitle: document.getElementById('recordsTitle'),
+      recordsDesc: document.getElementById('recordsDesc'),
+      visitDateLabel: document.getElementById('visitDateLabel'),
+      complaintLabel: document.getElementById('complaintLabel'),
+      notesLabel: document.getElementById('notesLabel'),
+      saveRecordBtn: document.getElementById('saveRecordBtn'),
+      clearAllBtn: document.getElementById('clearAllBtn'),
+      recordForm: document.getElementById('recordForm'),
+      recordList: document.getElementById('recordList'),
+      visitDate: document.getElementById('visitDate'),
+      complaint: document.getElementById('complaint'),
+      notes: document.getElementById('notes'),
+
+      // Patient
+      patientTitle: document.getElementById('patientTitle'),
+      patientDesc: document.getElementById('patientDesc'),
+      pNameLabel: document.getElementById('pNameLabel'),
+      pAgeLabel: document.getElementById('pAgeLabel'),
+      pGenderLabel: document.getElementById('pGenderLabel'),
+      pCondLabel: document.getElementById('pCondLabel'),
+      pNotesLabel: document.getElementById('pNotesLabel'),
+      saveProfileBtn: document.getElementById('saveProfileBtn'),
+      clearProfileBtn: document.getElementById('clearProfileBtn'),
+      patientForm: document.getElementById('patientForm'),
+      patientView: document.getElementById('patientView'),
+      pName: document.getElementById('pName'),
+      pAge: document.getElementById('pAge'),
+      pGender: document.getElementById('pGender'),
+      pConditions: document.getElementById('pConditions'),
+      pNotes: document.getElementById('pNotes'),
+
+      // AI checker
+      sympTitle: document.getElementById('sympTitle'),
+      sympDesc: document.getElementById('sympDesc'),
+      symptomsInput: document.getElementById('symptomsInput'),
+      quickPickLabel: document.getElementById('quickPickLabel'),
+      checkBtn: document.getElementById('checkBtn'),
+      clearSympBtn: document.getElementById('clearSympBtn'),
+      symptomForm: document.getElementById('symptomForm'),
+      symptomResults: document.getElementById('symptomResults'),
+      sympDisclaimer: document.getElementById('sympDisclaimer'),
+
+      // Do's Don'ts and Home remedies
+      dosTitle: document.getElementById('dosTitle'),
+      homeTitle: document.getElementById('homeTitle'),
+      homeNote: document.getElementById('homeNote'),
+
+      // Doctors directory
+      docDirTitle: document.getElementById('docDirTitle'),
+      docDirDesc: document.getElementById('docDirDesc'),
+      docDirectory: document.getElementById('docDirectory'),
+
+      // Emergency
+      emTitle: document.getElementById('emTitle'),
+      emSub: document.getElementById('emSub'),
+    };
+
+    // Language switcher
+    function setLang(lang) {
+      const L = t[lang] || t.en;
+      els.subtitle.textContent = L.subtitle;
+      els.viewHint.textContent = L.viewHint;
+      els.tabOnlineLabel.textContent = L.tabOnline;
+      els.tabOfflineLabel.textContent = L.tabOffline;
+      els.autoSwitchNote.textContent = L.autoSwitch;
+
+      els.videoTitle.textContent = L.videoTitle;
+      els.videoDesc.textContent = L.videoDesc;
+      els.startCallLabel.textContent = L.startCall;
+      els.scheduleLabel.textContent = L.schedule;
+      els.onlineOnlyChip.textContent = L.onlineOnly;
+      els.onlineOnlyChip2.textContent = L.onlineOnly;
+      els.onlineOnlyChip3.textContent = L.onlineOnly;
+      els.videoNote.textContent = L.callLegal; // concise message below card
+
+      els.docAvailTitle.textContent = L.docAvailTitle;
+      els.docAvailDesc.textContent = L.docAvailDesc;
+      els.refreshLabel.textContent = L.refresh;
+      document.getElementById('refreshLabel2').textContent = L.refresh;
+
+      els.pharmTitle.textContent = L.pharmTitle;
+      els.pharmDesc.textContent = L.pharmDesc;
+      els.lastSyncedLabel.textContent = L.lastSynced;
+
+      els.recordsTitle.textContent = L.recordsTitle;
+      els.recordsDesc.textContent = L.recordsDesc;
+      els.visitDateLabel.textContent = L.visitDate;
+      els.complaintLabel.textContent = L.complaint;
+      els.notesLabel.textContent = L.notes;
+      els.saveRecordBtn.textContent = L.saveRecord;
+      els.clearAllBtn.textContent = L.clearAll;
+
+      els.patientTitle.textContent = L.patientTitle;
+      els.patientDesc.textContent = L.patientDesc;
+      els.pNameLabel.textContent = L.pName;
+      els.pAgeLabel.textContent = L.pAge;
+      els.pGenderLabel.textContent = L.pGender;
+      els.pCondLabel.textContent = L.pCond;
+      els.pNotesLabel.textContent = L.pNotes;
+      els.saveProfileBtn.textContent = L.saveProfile;
+      els.clearProfileBtn.textContent = L.clear;
+
+      els.sympTitle.textContent = L.sympTitle;
+      els.sympDesc.textContent = L.sympDesc;
+      document.getElementById('symptomsInput').placeholder =
+        lang === 'en' ? 'e.g., fever, cough, headache' :
+        lang === 'hi' ? 'उदा., बुखार, खाँसी, सिरदर्द' :
+        'ਉਦਾਹਰਨ, ਬੁਖਾਰ, ਖੰਘ, ਸਿਰਦਰਦ';
+      els.quickPickLabel.textContent = L.quickPicks;
+      els.checkBtn.textContent = L.check;
+      els.clearSympBtn.textContent = L.clear;
+      els.sympDisclaimer.textContent = lang==='en'
+        ? "This is general guidance, not a diagnosis. Always follow local medical advice. For emergencies, use the numbers below."
+        : lang==='hi'
+          ? "यह सामान्य मार्गदर्शन है, निदान नहीं। हमेशा स्थानीय चिकित्सा सलाह का पालन करें। आपातकाल में नीचे दिए नंबरों का उपयोग करें।"
+          : "ਇਹ ਸਿਰਫ਼ ਆਮ ਦਿਸ਼ਾ-ਨਿਰਦੇਸ਼ ਹਨ, ਨਿਰਧਾਰਣ ਨਹੀਂ। ਹਮੇਸ਼ਾਂ ਸਥਾਨਕ ਡਾਕਟਰੀ ਸਲਾਹ ਮਾਨੋ। ਐਮਰਜੈਂਸੀ ਵਿੱਚ ਹੇਠਾਂ ਦਿੱਤੇ ਨੰਬਰ ਵਰਤੋ।";
+
+      els.dosTitle.textContent = L.dosTitle;
+      els.homeTitle.textContent = L.homeTitle;
+      els.homeNote.textContent = L.homeNote;
+
+      els.docDirTitle.textContent = L.docDirTitle;
+      els.docDirDesc.textContent = L.docDirDesc;
+
+      els.emTitle.textContent = L.emTitle;
+      els.emSub.textContent = L.emSub;
+
+      els.callModalTitle.textContent = L.callModalTitle;
+      els.closeLabel.textContent = L.close;
+      els.youLabel.textContent = L.you;
+      els.doctorLabel.textContent = L.doctor;
+      els.callLegal.textContent = L.callLegal;
+
+      updateOnlineUI(navigator.onLine);
+    }
+
+    // Online/Offline behavior
+    function showOnline() {
+      els.onlineSection.classList.remove('hidden');
+      els.offlineSection.classList.add('hidden');
+      els.tabOnline.classList.add('btn');
+      els.tabOffline.classList.remove('btn');
+    }
+    function showOffline() {
+      els.offlineSection.classList.remove('hidden');
+      els.onlineSection.classList.add('hidden');
+      els.tabOffline.classList.add('btn');
+      els.tabOnline.classList.remove('btn');
+    }
+    function updateOnlineUI(isOnline) {
+      const lang = els.languageSelect.value;
+      const L = t[lang] || t.en;
+      els.statusText.textContent = isOnline ? L.status_online : L.status_offline;
+      els.statusDot.className = 'inline-block h-2.5 w-2.5 rounded-full ' + (isOnline ? 'bg-emerald-500' : 'bg-slate-400');
+      if (isOnline) {
+        showOnline();
+        els.startCallBtn.disabled = false;
+        els.manualSyncBtn.disabled = false;
+        els.docRefresh.disabled = false;
+        startPharmacyTicker();
+        startDoctorTicker();
+      } else {
+        showOffline();
+        els.startCallBtn.disabled = true;
+        els.manualSyncBtn.disabled = true;
+        els.docRefresh.disabled = true;
+        stopPharmacyTicker();
+        stopDoctorTicker();
+      }
+    }
+    window.addEventListener('online', () => updateOnlineUI(true));
+    window.addEventListener('offline', () => updateOnlineUI(false));
+
+    // Manual tab toggle (doesn't change real network)
+    els.tabOnline.addEventListener('click', () => showOnline());
+    els.tabOffline.addEventListener('click', () => showOffline());
+
+    // Video modal controls (sample)
+    function openModal(){ els.callModal.classList.remove('hidden'); els.callModal.classList.add('flex'); }
+    function closeModal(){ els.callModal.classList.add('hidden'); els.callModal.classList.remove('flex'); }
+    els.startCallBtn.addEventListener('click', ()=>{ if (!navigator.onLine) return; openModal(); });
+    els.closeModalBtn.addEventListener('click', closeModal);
+    els.endBtn.addEventListener('click', closeModal);
+
+    // Pharmacy availability (simulated)
+    const PHARM_LS = 'pind_pharm_snapshot_v1';
+    let pharmTimer = null;
+    let currentPharmSnap = null;
+    function randomPharmacies() {
+      const names = ['Asha Medicals','Seva Pharmacy','Jan Aushadhi','GreenLeaf Chemist','HealthPlus','Village Care'];
+      const meds = ['Paracetamol 500mg','ORS Powder','Amoxicillin 250mg','Cough Syrup','Cetirizine','Ibuprofen 200mg'];
+      const items = Array.from({length: 4}).map(()=>({
+        id: Math.random().toString(36).slice(2),
+        name: names[Math.floor(Math.random()*names.length)],
+        distance: (Math.random()*8+0.5).toFixed(1) + ' km',
+        lines: Array.from({length: 3}).map(()=>({
+          med: meds[Math.floor(Math.random()*meds.length)],
+          stock: Math.random() > 0.2 ? 'In stock' : 'Low',
+          qty: Math.floor(Math.random()*30)+5
+        }))
+      }));
+      return { when: new Date().toLocaleString(), items };
+    }
+    function renderPharm(snapshot) {
+      currentPharmSnap = snapshot;
+      els.pharmacyList.innerHTML = '';
+      const q = (document.getElementById('pharmSearch')?.value || '').toLowerCase().trim();
+      const items = snapshot.items.filter(p => {
+        if (!q) return true;
+        const inName = p.name.toLowerCase().includes(q);
+        const inMeds = p.lines.some(line => line.med.toLowerCase().includes(q));
+        return inName || inMeds;
+      });
+      items.forEach(p=>{
+        const li = document.createElement('li');
+        li.className = 'soft rounded-xl p-3';
+        li.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div><div class="font-semibold">${p.name}</div><div class="text-slate-600 text-sm mt-1">${p.distance}</div></div>
+            <div class="text-right text-sm">
+              ${p.lines.map(line=>{
+                const cls = line.stock==='In stock' ? 'ok' : 'warn';
+                const highlight = q && line.med.toLowerCase().includes(q) ? 'font-semibold' : '';
+                return `<div class="${highlight}"><span class="${cls}">${line.stock}</span> • ${escapeHTML(line.med)} • ${line.qty}</div>`;
+              }).join('')}
+            </div>
+          </div>
+        `;
+        els.pharmacyList.appendChild(li);
+      });
+      els.lastSyncedValue.textContent = snapshot.when;
+    }
+    // react to search input
+    document.addEventListener('input', (e)=>{
+      if (e.target && e.target.id === 'pharmSearch' && currentPharmSnap){
+        renderPharm(currentPharmSnap);
+      }
+    });
+    function startPharmacyTicker() {
+      if (pharmTimer) return;
+      const snap = randomPharmacies();
+      localStorage.setItem(PHARM_LS, JSON.stringify(snap));
+      renderPharm(snap);
+      pharmTimer = setInterval(()=>{
+        const s = randomPharmacies();
+        localStorage.setItem(PHARM_LS, JSON.stringify(s));
+        renderPharm(s);
+      }, 10000);
+    }
+    // Initialize a first snapshot even if offline so AI checker can reference cached data
+    (function ensureInitialPharm(){
+      try { const cached = JSON.parse(localStorage.getItem(PHARM_LS)||'null'); if (cached) { currentPharmSnap = cached; } } catch {}
+    })();
+    function stopPharmacyTicker() {
+      if (pharmTimer) { clearInterval(pharmTimer); pharmTimer = null; }
+      try {
+        const cached = JSON.parse(localStorage.getItem(PHARM_LS)||'null');
+        if (cached) renderPharm(cached);
+      } catch {}
+    }
+    els.manualSyncBtn.addEventListener('click', ()=>{
+      if (!navigator.onLine) return;
+      const s = randomPharmacies();
+      localStorage.setItem(PHARM_LS, JSON.stringify(s));
+      renderPharm(s);
+    });
+
+    // Doctor availability (simulated)
+    const DOCS_LS = 'pind_docs_snapshot_v1';
+    let docTimer = null;
+    const baseDoctors = [
+      {id:'d1', name:'Dr. Manpreet Singh', specialty:'General Physician', exp:8, lang:['English','Punjabi','Hindi']},
+      {id:'d2', name:'Dr. Rani Sharma', specialty:'Pediatrics', exp:10, lang:['English','Hindi']},
+      {id:'d3', name:'Dr. Arjun Patel', specialty:'Internal Medicine', exp:12, lang:['English','Hindi']},
+      {id:'d4', name:'Dr. Simran Kaur', specialty:'Gynecology', exp:9, lang:['English','Punjabi']},
+      {id:'d5', name:'Dr. Vivek Rao', specialty:'ENT', exp:7, lang:['English','Hindi']},
+      {id:'d6', name:'Dr. Harpreet Gill', specialty:'Pulmonology', exp:11, lang:['English','Punjabi','Hindi']},
+    ];
+    function randomAvailability() {
+      return baseDoctors.map(d => ({
+        ...d,
+        status: Math.random() > 0.4 ? 'Available now' : 'Away',
+        next: Math.random() > 0.5 ? `${Math.floor(Math.random()*3)+1} hr` : `${Math.floor(Math.random()*50)+10} min`
+      }));
+    }
+    function renderDoctors(list) {
+      els.doctorList.innerHTML = '';
+      const q = (els.docSearch.value || '').toLowerCase().trim();
+      list.filter(d => !q || d.name.toLowerCase().includes(q) || d.specialty.toLowerCase().includes(q)).forEach(d=>{
+        const li = document.createElement('li');
+        li.className = 'soft rounded-xl p-3';
+        li.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold">${d.name}</div>
+              <div class="text-slate-600 text-sm">${d.specialty} • ${d.exp} yrs</div>
+              <div class="text-slate-600 text-xs mt-1">Languages: ${d.lang.join(', ')}</div>
+            </div>
+            <div class="text-right">
+              <div class="${d.status==='Available now' ? 'ok' : 'warn'} font-medium">${d.status}</div>
+              <div class="text-slate-600 text-sm mt-1">Next slot: ${d.next}</div>
+              <button class="chip mt-2" data-doc="${d.id}" data-act="req">Request appointment</button>
+            </div>
+          </div>
+        `;
+        els.doctorList.appendChild(li);
+      });
+    }
+    function startDoctorTicker() {
+      if (docTimer) return;
+      const snap = { when: new Date().toLocaleString(), items: randomAvailability() };
+      localStorage.setItem(DOCS_LS, JSON.stringify(snap));
+      renderDoctors(snap.items);
+      docTimer = setInterval(()=>{
+        const s = { when: new Date().toLocaleString(), items: randomAvailability() };
+        localStorage.setItem(DOCS_LS, JSON.stringify(s));
+        renderDoctors(s.items);
+      }, 12000);
+    }
+    function stopDoctorTicker() {
+      if (docTimer) { clearInterval(docTimer); docTimer = null; }
+      try {
+        const cached = JSON.parse(localStorage.getItem(DOCS_LS)||'null');
+        if (cached) renderDoctors(cached.items);
+      } catch {}
+    }
+    els.docRefresh.addEventListener('click', ()=>{ if (!navigator.onLine) return;
+      const s = { when: new Date().toLocaleString(), items: randomAvailability() };
+      localStorage.setItem(DOCS_LS, JSON.stringify(s));
+      renderDoctors(s.items);
+    });
+    els.docSearch.addEventListener('input', ()=>{
+      try {
+        const cached = JSON.parse(localStorage.getItem(DOCS_LS)||'null');
+        if (cached) renderDoctors(cached.items);
+      } catch {}
+    });
+    // Save appointment requests offline
+    document.getElementById('doctorList').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-act="req"]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-doc');
+      const appts = JSON.parse(localStorage.getItem('pind_appts') || '[]');
+      appts.push({ id, when: new Date().toISOString() });
+      localStorage.setItem('pind_appts', JSON.stringify(appts));
+      const old = btn.textContent; btn.textContent = 'Requested ✓';
+      setTimeout(()=> btn.textContent = old, 1200);
+    });
+
+    // Records (offline)
+    const REC_KEY = 'pind_records_v1';
+    function readRecords(){ try{return JSON.parse(localStorage.getItem(REC_KEY)||'[]');}catch{return[];} }
+    function writeRecords(list){ localStorage.setItem(REC_KEY, JSON.stringify(list)); }
+    function renderRecords(){
+      const list = readRecords();
+      els.recordList.innerHTML = '';
+      if (!list.length){
+        const empty = document.createElement('div');
+        empty.className = 'text-slate-500 text-sm'; empty.textContent = 'No records yet.'; els.recordList.appendChild(empty); return;
+      }
+      list.forEach((rec,idx)=>{
+        const li = document.createElement('li');
+        li.className = 'soft rounded-xl p-3';
+        li.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold">${rec.date || '-'}</div>
+              <div class="mt-1">${escapeHTML(rec.complaint || '')}</div>
+              <div class="text-slate-600 text-sm mt-1">${escapeHTML(rec.notes || '')}</div>
+            </div>
+            <div class="text-right">
+              <button class="chip" data-act="del" data-idx="${idx}">Delete</button>
+            </div>
+          </div>
+        `;
+        els.recordList.appendChild(li);
+      });
+    }
+    els.recordForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const rec = {
+        date: els.visitDate.value || new Date().toISOString().slice(0,10),
+        complaint: els.complaint.value.trim(),
+        notes: els.notes.value.trim()
+      };
+      if (!rec.complaint) return;
+      const list = readRecords(); list.unshift(rec); writeRecords(list);
+      e.target.reset(); renderRecords();
+    });
+    els.recordList.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-act="del"]'); if (!btn) return;
+      const idx = +btn.getAttribute('data-idx'); const list = readRecords();
+      list.splice(idx,1); writeRecords(list); renderRecords();
+    });
+    els.clearAllBtn.addEventListener('click', ()=>{
+      if (confirm('Clear all saved records?')) { writeRecords([]); renderRecords(); }
+    });
+
+    // Patient profile (offline)
+    const PROF_KEY = 'pind_patient_v1';
+    function readProfile(){ try{return JSON.parse(localStorage.getItem(PROF_KEY)||'null');}catch{return null;} }
+    function writeProfile(p){ localStorage.setItem(PROF_KEY, JSON.stringify(p)); }
+    function renderProfile(){
+      const p = readProfile();
+      if (!p){ els.patientView.classList.add('hidden'); return; }
+      els.patientView.classList.remove('hidden');
+      els.patientView.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="font-semibold text-lg">${escapeHTML(p.name||'')}</div>
+            <div class="text-slate-600 text-sm">${p.age ? p.age+' yrs • ': ''}${escapeHTML(p.gender||'')}</div>
+            <div class="text-slate-700 mt-1"><span class="font-semibold">Conditions:</span> ${escapeHTML(p.conditions||'-')}</div>
+            <div class="text-slate-700 mt-1"><span class="font-semibold">Notes:</span> ${escapeHTML(p.notes||'-')}</div>
+          </div>
+          <div><button class="chip" id="editProfileBtn">Edit</button></div>
+        </div>
+      `;
+      document.getElementById('editProfileBtn').addEventListener('click', ()=>{
+        els.pName.value = p.name||''; els.pAge.value = p.age||''; els.pGender.value = p.gender||'other';
+        els.pConditions.value = p.conditions||''; els.pNotes.value = p.notes||'';
+        window.scrollTo({top: els.patientForm.getBoundingClientRect().top + window.scrollY - 20, behavior:'smooth'});
+      });
+    }
+    els.patientForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const p = {
+        name: els.pName.value.trim(),
+        age: els.pAge.value ? +els.pAge.value : null,
+        gender: els.pGender.value,
+        conditions: els.pConditions.value.trim(),
+        notes: els.pNotes.value.trim()
+      };
+      if (!p.name) return;
+      writeProfile(p);
+      const old = els.saveProfileBtn.textContent; els.saveProfileBtn.textContent='Saved ✓';
+      setTimeout(()=> els.saveProfileBtn.textContent = old, 1200);
+      renderProfile();
+    });
+    document.getElementById('clearProfileBtn').addEventListener('click', ()=>{
+      if (confirm('Clear saved profile?')) { localStorage.removeItem(PROF_KEY); renderProfile(); }
+    });
+
+    // Doctors Directory (profiles, offline)
+    const DOC_DIR = [
+      {id:'d1', name:'Dr. Manpreet Singh', specialty:'General Physician', village:'Barnala', phone:'7000000001'},
+      {id:'d2', name:'Dr. Simran Kaur', specialty:'Gynecology', village:'Moga', phone:'7000000002'},
+      {id:'d3', name:'Dr. Arjun Patel', specialty:'Internal Medicine', village:'Viramgam', phone:'7000000003'},
+      {id:'d4', name:'Dr. Rani Sharma', specialty:'Pediatrics', village:'Rewari', phone:'7000000004'},
+      {id:'d5', name:'Dr. Vivek Rao', specialty:'ENT', village:'Nanded', phone:'7000000005'},
+      {id:'d6', name:'Dr. Harpreet Gill', specialty:'Pulmonology', village:'Kapurthala', phone:'7000000006'},
+    ];
+    function renderDocDirectory(){
+      els.docDirectory.innerHTML = '';
+      DOC_DIR.forEach(d=>{
+        const li = document.createElement('li');
+        li.className = 'soft rounded-xl p-3';
+        li.innerHTML = `
+          <div class="font-semibold">${d.name}</div>
+          <div class="text-slate-600 text-sm">${d.specialty} • ${d.village}</div>
+          <div class="flex items-center gap-2 mt-2">
+            <a class="btn" href="tel:${d.phone}" target="_blank" rel="noopener noreferrer">Call</a>
+            <button class="chip" data-dir="${d.id}" data-act="fav">Save</button>
+          </div>
+        `;
+        els.docDirectory.appendChild(li);
+      });
+    }
+    document.getElementById('docDirectory').addEventListener('click', (e)=>{
+      const b = e.target.closest('button[data-act="fav"]'); if (!b) return;
+      const id = b.getAttribute('data-dir');
+      const favs = JSON.parse(localStorage.getItem('pind_fav_docs')||'[]');
+      if (!favs.includes(id)) favs.push(id);
+      localStorage.setItem('pind_fav_docs', JSON.stringify(favs));
+      const old = b.textContent; b.textContent = 'Saved ✓'; setTimeout(()=> b.textContent = old, 1200);
+    });
+
+    // AI-lite Symptom checker (upgraded rules)
+    // Each rule: symptoms (must include all), category, meds (OTC guidance), tips
+    const rules = [
+      { s:['fever','cough','body ache'], cat:'Viral fever', meds:['Paracetamol 500 mg','ORS'], tips:['Rest and hydration','Monitor temperature 2–3 times/day','If fever >3 days or very high, see a doctor'] },
+      { s:['sore throat','cough','runny nose'], cat:'Common cold', meds:['Cetirizine','Salt-water gargle'], tips:['Steam inhalation 1–2/day','Mask if coughing','See a doctor if symptoms worsen'] },
+      { s:['diarrhea','vomiting'], cat:'Gastroenteritis', meds:['ORS','Zinc'], tips:['Small sips frequently','Avoid oily/spicy food','If bloody stools or dehydration, seek care'] },
+      { s:['headache','fever'], cat:'Fever with headache', meds:['Paracetamol 500 mg'], tips:['Rest in a quiet room','Adequate fluids','If severe or with neck stiffness, urgent care'] },
+      { s:['cough','breathlessness'], cat:'Breathing difficulty', meds:['Levalbuterol/Salbutamol inhaler (if prescribed)','Avoid exertion'], tips:['If worsening or chest pain, call emergency (112/102)','Sit upright'] },
+    ];
+    function analyze(text){
+      const items = text.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+      const strict = [];
+      const any = [];
+      rules.forEach(r => {
+        const hasAll = r.s.every(m => items.includes(m));
+        const hasAny = r.s.some(m => items.includes(m));
+        if (hasAll) strict.push({ ...r, match: 'exact' });
+        else if (hasAny) any.push({ ...r, match: 'partial' });
+      });
+      const hits = strict.length ? strict : any; // fall back to partial matches
+      return { items, hits };
+    }
+    function renderSymptomResults({items,hits}){
+      els.symptomResults.innerHTML = '';
+      if (!items.length) {
+        const p = document.createElement('p'); p.className='text-slate-600 text-sm'; p.textContent='Please enter at least one symptom.';
+        els.symptomResults.appendChild(p); return;
+      }
+      const chips = document.createElement('div'); chips.className='flex flex-wrap gap-2';
+      items.forEach(it=>{ const c = document.createElement('span'); c.className='chip'; c.textContent=it; chips.appendChild(c); });
+      els.symptomResults.appendChild(chips);
+
+      if (!hits.length){
+        const card = document.createElement('div'); card.className='soft rounded-xl p-3';
+        card.textContent = 'No clear pattern detected. If symptoms persist or worsen, consult a doctor.';
+        els.symptomResults.appendChild(card); return;
+      }
+
+      hits.forEach(h=>{
+        const wrap = document.createElement('div'); wrap.className='soft rounded-xl p-3 space-y-2';
+        const title = document.createElement('div'); title.className='font-semibold'; title.textContent = h.cat; wrap.appendChild(title);
+
+        const meds = document.createElement('div');
+        let medsHTML = '<span class="font-semibold">Suggested tablets/support:</span> ' + h.meds.join(', ');
+        // Add availability hints if we have a current pharmacy snapshot
+        if (currentPharmSnap) {
+          const flat = [];
+          currentPharmSnap.items.forEach(ph => ph.lines.forEach(line => flat.push({ med: line.med.toLowerCase(), stock: line.stock })));
+          const availability = h.meds.map(m => {
+            const mKey = m.toLowerCase().split('(')[0].trim();
+            const found = flat.find(f => f.med.includes(mKey));
+            return `${m} ${found ? (found.stock === 'In stock' ? '— likely in stock nearby' : '— low stock nearby') : ''}`;
+          });
+          medsHTML = '<span class="font-semibold">Suggested tablets/support:</span> ' + availability.join(', ');
+        }
+        meds.innerHTML = medsHTML;
+
+        const tips = document.createElement('ul'); tips.className='list-disc ml-5 text-slate-700'; h.tips.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; tips.appendChild(li); });
+
+        wrap.appendChild(meds); wrap.appendChild(tips); els.symptomResults.appendChild(wrap);
+      });
+    }
+    document.querySelectorAll('[data-pick]').forEach(b=> b.addEventListener('click', ()=>{
+      const val = b.getAttribute('data-pick');
+      const cur = els.symptomsInput.value.trim();
+      const parts = cur ? cur.split(',').map(s=>s.trim()).filter(Boolean) : [];
+      if (!parts.includes(val)) parts.push(val);
+      els.symptomsInput.value = parts.join(', ');
+    }));
+    els.symptomForm.addEventListener('submit',(e)=>{ e.preventDefault(); renderSymptomResults(analyze(els.symptomsInput.value)); });
+    els.clearSympBtn.addEventListener('click', ()=>{ els.symptomsInput.value=''; els.symptomResults.innerHTML=''; });
+
+    // Utility
+    function escapeHTML(s){return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+    // Emergency copy buttons
+    document.querySelectorAll('.copy-btn').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const num = b.getAttribute('data-num');
+        try { await navigator.clipboard.writeText(num); const old=b.textContent; b.textContent='Copied!'; setTimeout(()=> b.textContent=old, 1200); }
+        catch { alert('Copy failed. Number: ' + num); }
+      });
+    });
+
+    // Language persistence
+    const LANG_KEY = 'pind_lang_v1';
+    const savedLang = localStorage.getItem(LANG_KEY);
+    if (savedLang && t[savedLang]) { document.getElementById('languageSelect').value = savedLang; }
+    setLang(document.getElementById('languageSelect').value);
+    els.languageSelect.addEventListener('change', (e)=>{ localStorage.setItem(LANG_KEY, e.target.value); setLang(e.target.value); });
+
+    // Init views
+    updateOnlineUI(navigator.onLine);
+    // Show cached lists if offline
+    try { const cachedP = JSON.parse(localStorage.getItem(PHARM_LS)||'null'); if (cachedP) renderPharm(cachedP); } catch {}
+    try { const cachedD = JSON.parse(localStorage.getItem(DOCS_LS)||'null'); if (cachedD) renderDoctors(cachedD.items); } catch {}
+    renderRecords();
+    renderProfile();
+    renderDocDirectory();
+  </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98405ad717d3087b',t:'MTc1ODY5NjcwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
